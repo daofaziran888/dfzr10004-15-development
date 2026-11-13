@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+import threading
 from typing import Any
 
 from app.seed import SEED_ROWS
@@ -14,6 +15,10 @@ class Store:
         self._tables: dict[str, list[dict[str, Any]]] = {
             name: [dict(row) for row in rows] for name, rows in SEED_ROWS.items()
         }
+        # 发布、锁定额度、计划授权是多步写操作，必须整体串行；FastAPI 的同步路由
+        # 跑在线程池里，没有这把锁时并发发布可能各自读到「尚未锁定额度」。
+        self.lock = threading.RLock()
+        self.bootstrapped = False
 
     def module_names(self) -> list[str]:
         return sorted(self._tables)
